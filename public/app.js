@@ -62,7 +62,7 @@ function renderStatus() {
   $('#statusText').textContent = text;
   $('#statusText').title = st.optionsError ? `Options: ${st.optionsError}` : st.lastOptionsAt ? `Options scanned ${new Date(st.lastOptionsAt).toLocaleTimeString()}` : '';
   const b = $('#providerBadge');
-  b.textContent = S.provider === 'mock' ? 'SIMULATED DATA' : S.provider ? 'Yahoo Finance' : '';
+  b.textContent = { mock: 'SIMULATED DATA', yahoo: 'Yahoo Finance', finnhub: 'Finnhub + Yahoo options' }[S.provider] || '';
   b.className = `badge ${S.provider === 'mock' ? 'warn' : ''}`;
 }
 

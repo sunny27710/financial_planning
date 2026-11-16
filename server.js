@@ -9,6 +9,7 @@ import { Notifier } from './src/notifier.js';
 import { Monitor } from './src/monitor.js';
 import { YahooProvider } from './src/providers/yahoo.js';
 import { MockProvider } from './src/providers/mock.js';
+import { FinnhubProvider } from './src/providers/finnhub.js';
 import { sharesFromAmount, parsePortfolioCsv, holdingsFromRows } from './src/holdings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -18,7 +19,28 @@ const PASSWORD = process.env.APP_PASSWORD || ''; // set this if you expose the a
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data', 'db.json');
 
 const store = new Store(DB_FILE);
-const provider = process.env.DATA_PROVIDER === 'mock' ? new MockProvider() : new YahooProvider();
+const yahoo = new YahooProvider();
+let finnhub = null;
+// Quotes come from Finnhub when an API key is set (Settings tab or FINNHUB_API_KEY), otherwise Yahoo.
+// Option chains always come from Yahoo.
+const provider =
+  process.env.DATA_PROVIDER === 'mock'
+    ? new MockProvider()
+    : {
+        get name() {
+          return finnhubKey() ? 'finnhub' : 'yahoo';
+        },
+        getQuotes(symbols) {
+          const key = finnhubKey();
+          if (!key) return yahoo.getQuotes(symbols);
+          if (finnhub?.apiKey !== key) finnhub = new FinnhubProvider(key);
+          return finnhub.getQuotes(symbols);
+        },
+        getCallChain: (symbol, opts) => yahoo.getCallChain(symbol, opts),
+      };
+function finnhubKey() {
+  return store.db.settings.finnhubApiKey || process.env.FINNHUB_API_KEY || '';
+}
 
 const clients = new Set();
 function broadcast(event, data) {
@@ -54,11 +76,15 @@ function state() {
     priceAlerts: store.db.priceAlerts,
     callRules: store.db.callRules,
     notifications: store.db.notifications.slice(0, 100),
-    settings: store.db.settings,
+    settings: { ...store.db.settings, finnhubApiKey: maskKey(store.db.settings.finnhubApiKey) },
     quotes: monitor.quotes,
     callMatches: monitor.callMatches,
     status: monitor.status,
   };
+}
+
+function maskKey(k) {
+  return k ? `••••${k.slice(-4)}` : '';
 }
 
 function cleanHolding(b) {
@@ -177,9 +203,12 @@ async function api(req, res, url) {
     if (b.ntfyTopic !== undefined) s.ntfyTopic = String(b.ntfyTopic).trim();
     if (b.ntfyServer !== undefined) s.ntfyServer = String(b.ntfyServer).trim() || 'https://ntfy.sh';
     if (b.webhookUrl !== undefined) s.webhookUrl = String(b.webhookUrl).trim();
+    // The page only ever sees a masked key; ignore it unless a new one was typed.
+    if (b.finnhubApiKey !== undefined && !String(b.finnhubApiKey).startsWith('••••')) s.finnhubApiKey = String(b.finnhubApiKey).trim();
     store.save();
     broadcast('state', state());
-    return send(res, 200, s);
+    monitor.pollQuotes().catch(() => {});
+    return send(res, 200, { ...s, finnhubApiKey: maskKey(s.finnhubApiKey) });
   }
 
   if (resource === 'notifications' && m === 'DELETE') {
@@ -242,19 +271,32 @@ const server = http.createServer(async (req, res) => {
 });
 
 // On first run, load holdings from portfolio.csv (if present).
-async function importPortfolioCsv() {
+// If prices can't be fetched yet (e.g. Yahoo is rate-limiting), retry every 2 minutes,
+// and only give up on tickers that still have no price after several tries.
+async function importPortfolioCsv(attempt = 1) {
   const file = process.env.PORTFOLIO_CSV || path.join(__dirname, 'portfolio.csv');
   if (store.db.holdings.length || !fs.existsSync(file)) return;
+  const MAX_TRIES = 5;
+  const retry = (why) => {
+    console.warn(`  ${why} Trying again in 2 minutes (attempt ${attempt + 1} of ${MAX_TRIES}).`);
+    setTimeout(() => importPortfolioCsv(attempt + 1), 120_000);
+  };
   console.log(`Loading holdings from ${path.basename(file)}…`);
   try {
     const { holdings, problems } = await holdingsFromRows(provider, parsePortfolioCsv(fs.readFileSync(file, 'utf8')));
+    if (problems.some((p) => p.includes('no price')) && attempt < MAX_TRIES) {
+      return retry(`Couldn't get prices for ${problems.length} ticker(s) yet.`);
+    }
     for (const h of holdings) store.db.holdings.push({ id: Store.id(), ...h, createdAt: new Date().toISOString() });
     store.save();
+    broadcast('state', state());
     const total = holdings.reduce((t, h) => t + h.shares * h.costBasis, 0);
     console.log(`  Added ${holdings.length} holdings ($${Math.round(total).toLocaleString()} total).`);
     for (const p of problems) console.warn(`  Skipped ${p}`);
+    monitor.pollQuotes().catch(() => {});
   } catch (err) {
-    console.error(`  Could not load ${path.basename(file)}: ${err.message}. Restart the app to try again.`);
+    if (attempt < MAX_TRIES) retry(`Couldn't get prices: ${err.message}`);
+    else console.error(`  Could not load ${path.basename(file)}: ${err.message}. Restart the app to try again.`);
   }
 }
 
