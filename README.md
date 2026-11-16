@@ -21,6 +21,12 @@ To try it with simulated prices and option chains (no internet needed):
 npm run demo
 ```
 
+### Demo with nothing to install
+
+[`demo/portfolio-demo.html`](demo/portfolio-demo.html) is a single file that runs the whole app in your browser with simulated prices. Download it, then double-click it to open. It comes with example holdings and alerts. Use the **Market +3% / −3%** buttons to trigger price alerts, and **Reset demo** to start over. Changes are saved in that browser only. Desktop notifications may not work when the page is opened as a local file.
+
+If you change the app, rebuild the demo with `npm run build:demo`. A test fails if the committed file is out of date.
+
 ## Features
 
 **Live portfolio**
@@ -74,4 +80,5 @@ src/alerts.js          pure alert logic (tested)
 src/notifier.js        in-app / ntfy / webhook delivery
 src/providers/         yahoo.js (live), mock.js (simulated)
 public/                dashboard (vanilla HTML/CSS/JS)
+demo/                  standalone browser-only demo (built by scripts/build-demo.mjs)
 ```
