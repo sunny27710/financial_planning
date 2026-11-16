@@ -19,7 +19,7 @@ Open http://localhost:3000, add your holdings, then set up alerts.
 
 You can add holdings on the page by share count, or by the **dollar amount** you invested. With a dollar amount, the app buys at today's price: shares = amount ÷ price, and that price becomes your cost basis.
 
-To load many at once, copy `portfolio.example.csv` to `portfolio.csv` and list one holding per line (`VOO, 486,178`). On first start, when the app has no holdings yet, it loads them from that file. `portfolio.csv` is ignored by git, so your numbers stay on your computer. To reload the file later, delete `data/db.json` and start again. That also clears your alerts.
+To load many at once, copy `portfolio.example.csv` to `portfolio.csv` and list one holding per line (`VOO, 486,178`). On first start, when the app has no holdings yet, it loads them from that file. To reload the file later, delete `data/db.json` and start again. That also clears your alerts.
 
 To try it with simulated prices and option chains (no internet needed):
 

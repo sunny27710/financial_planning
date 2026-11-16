@@ -1,5 +1,4 @@
-# Copy this file to portfolio.csv and put your own holdings in it.
-# portfolio.csv is ignored by git, so it never gets committed.
+# Example format for portfolio.csv.
 #
 # When the app starts with no holdings, it loads portfolio.csv.
 # Each line is: ticker, amount invested in dollars

@@ -1,0 +1,17 @@
+# My holdings: ticker, amount invested ($). Shares = amount / today's price.
+# Loaded automatically the first time the app starts (when it has no holdings yet).
+SCHD, 142587
+VOO, 486178
+# VUG + QQQ (106,742) split evenly. Change if your split is different.
+VUG, 53371
+QQQ, 53371
+VT, 19904
+VXUS, 34623
+JEPQ, 3297
+O, 23760
+GOOGL, 1270680
+AMZN, 212188
+MSFT, 232518
+BRK-B, 71960
+# "Dividend Stocks" (98,256) isn't a single ticker. List each stock on its own line, e.g.:
+# JNJ, 30000
