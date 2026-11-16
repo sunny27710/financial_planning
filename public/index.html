@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portfolio Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Portfolio Tracker</div>
+    <div class="status">
+      <span id="conn" class="dot"></span>
+      <span id="statusText">Connecting…</span>
+      <span id="providerBadge" class="badge"></span>
+    </div>
+    <button id="enableNotifs" class="btn small">Enable notifications</button>
+  </header>
+
+  <main>
+    <section class="cards">
+      <div class="card"><div class="label">Market value</div><div class="value" id="totalValue">—</div></div>
+      <div class="card"><div class="label">Today</div><div class="value" id="dayChange">—</div></div>
+      <div class="card"><div class="label">Total gain / loss</div><div class="value" id="totalGain">—</div></div>
+      <div class="card"><div class="label">Cost basis</div><div class="value" id="totalCost">—</div></div>
+    </section>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="holdings">Holdings</button>
+      <button class="tab" data-tab="price">Price alerts <span class="count" id="priceCount"></span></button>
+      <button class="tab" data-tab="calls">Covered calls <span class="count" id="callCount"></span></button>
+      <button class="tab" data-tab="feed">Notifications <span class="count" id="feedCount"></span></button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <!-- Holdings -->
+    <section class="panel active" id="tab-holdings">
+      <form id="holdingForm" class="inline-form">
+        <input name="symbol" placeholder="Ticker (e.g. AAPL)" required autocomplete="off" />
+        <input name="shares" type="number" step="any" min="0" placeholder="Shares" required />
+        <input name="costBasis" type="number" step="any" min="0" placeholder="Avg cost / share" />
+        <button class="btn primary">Add holding</button>
+      </form>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th><th class="r">Price</th><th class="r">Day</th><th class="r">Shares</th>
+              <th class="r">Avg cost</th><th class="r">Value</th><th class="r">Gain / loss</th><th class="r">Weight</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="holdingsBody"></tbody>
+        </table>
+      </div>
+      <p class="empty" id="holdingsEmpty">No holdings yet. Add your first position above.</p>
+    </section>
+
+    <!-- Price alerts -->
+    <section class="panel" id="tab-price">
+      <form id="priceForm" class="inline-form">
+        <input name="symbol" placeholder="Ticker" required autocomplete="off" list="symbolList" />
+        <select name="direction">
+          <option value="above">rises to or above</option>
+          <option value="below">falls to or below</option>
+        </select>
+        <input name="target" type="number" step="any" min="0" placeholder="Target price" required />
+        <input name="note" placeholder="Note (optional)" />
+        <label class="check"><input type="checkbox" name="repeat" /> Repeat</label>
+        <button class="btn primary">Add alert</button>
+      </form>
+      <p class="hint">One-shot alerts fire once and turn off. <b>Repeat</b> alerts re-arm after the price crosses back over the target.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Symbol</th><th>Condition</th><th class="r">Current</th><th class="r">Distance</th><th>Status</th><th>Note</th><th></th></tr></thead>
+          <tbody id="priceBody"></tbody>
+        </table>
+      </div>
+      <p class="empty" id="priceEmpty">No price alerts yet.</p>
+    </section>
+
+    <!-- Covered calls -->
+    <section class="panel" id="tab-calls">
+      <form id="callForm" class="grid-form">
+        <label>Symbol<input name="symbol" placeholder="* = all holdings" value="*" required autocomplete="off" list="symbolList" /></label>
+        <label>Min premium ($/share)<input name="minPremium" type="number" step="0.01" min="0" value="1.00" required /></label>
+        <label>Premium basis
+          <select name="premiumBasis"><option value="bid">Bid (what you'd get)</option><option value="mid">Mid</option><option value="last">Last trade</option></select>
+        </label>
+        <label>Min days to expiry<input name="minDte" type="number" min="0" value="7" /></label>
+        <label>Max days to expiry<input name="maxDte" type="number" min="0" max="730" value="45" /></label>
+        <label>Min % out of the money<input name="minOtmPct" type="number" step="0.1" value="5" /></label>
+        <label>Min annualized yield %<input name="minAnnualizedPct" type="number" step="0.1" min="0" value="0" /></label>
+        <label class="check"><input type="checkbox" name="requireShares" /> Only if I own ≥ 100 shares</label>
+        <button class="btn primary">Add covered-call alert</button>
+      </form>
+      <p class="hint">Scans call options for your stocks and notifies you when a contract meets every condition. <b>*</b> watches every holding with at least 100 shares. Each contract is notified at most once per cooldown window (Settings).</p>
+      <div id="callRules"></div>
+      <p class="empty" id="callsEmpty">No covered-call alerts yet.</p>
+    </section>
+
+    <!-- Notifications feed -->
+    <section class="panel" id="tab-feed">
+      <div class="row-between">
+        <h3>Recent notifications</h3>
+        <div>
+          <button id="testNotif" class="btn small">Send test</button>
+          <button id="clearNotifs" class="btn small ghost">Clear</button>
+        </div>
+      </div>
+      <ul id="feed" class="feed"></ul>
+      <p class="empty" id="feedEmpty">Nothing yet. Alerts will show up here.</p>
+    </section>
+
+    <!-- Settings -->
+    <section class="panel" id="tab-settings">
+      <form id="settingsForm" class="grid-form">
+        <label>Quote refresh (seconds)<input name="quoteIntervalSec" type="number" min="5" /></label>
+        <label>Options scan (seconds)<input name="optionsIntervalSec" type="number" min="60" /></label>
+        <label>Covered-call cooldown (hours)<input name="callCooldownHours" type="number" min="0" step="0.5" /></label>
+        <label>ntfy topic (phone push)<input name="ntfyTopic" placeholder="e.g. my-portfolio-7f3k2" autocomplete="off" /></label>
+        <label>ntfy server<input name="ntfyServer" placeholder="https://ntfy.sh" /></label>
+        <label>Webhook URL (Discord / Slack)<input name="webhookUrl" placeholder="https://discord.com/api/webhooks/…" autocomplete="off" /></label>
+        <button class="btn primary">Save settings</button>
+      </form>
+      <div class="hint">
+        <p><b>Browser notifications</b> work while this page is open (click “Enable notifications” at the top).</p>
+        <p><b>Phone / always-on push:</b> install the free <a href="https://ntfy.sh" target="_blank" rel="noopener">ntfy</a> app, subscribe to a hard-to-guess topic name, and paste it above. Alerts are sent by the server, so they arrive even with the browser closed.</p>
+      </div>
+    </section>
+  </main>
+
+  <datalist id="symbolList"></datalist>
+  <div id="toasts"></div>
+  <script src="app.js"></script>
+</body>
+</html>

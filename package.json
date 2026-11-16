@@ -1,0 +1,14 @@
+{
+  "name": "portfolio-tracker",
+  "version": "1.0.0",
+  "description": "Real-time portfolio tracker with price alerts and covered-call premium alerts",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "demo": "DATA_PROVIDER=mock node server.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=18.17" },
+  "license": "MIT"
+}
