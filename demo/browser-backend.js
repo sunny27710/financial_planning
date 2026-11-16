@@ -1,21 +1,26 @@
 // In-browser stand-in for server.js + monitor.js, used only by the standalone demo.
 // It reuses the real alert logic (src/alerts.js) and simulated data (src/providers/mock.js).
 (function () {
-  const KEY = 'portfolio-demo-v1';
+  const KEY = 'portfolio-demo-v2';
   const uid = () => Math.random().toString(36).slice(2, 10);
   const nowIso = () => new Date().toISOString();
+  // Your portfolio: total invested per asset, bought at today's (simulated) price.
+  const INVESTED = [
+    ['SCHD', 142587], ['VOO', 486178], ['VUG', 106742 / 2], ['QQQ', 106742 / 2], ['VT', 19904], ['VXUS', 34623],
+    ['JEPQ', 3297], ['O', 23760], ['GOOGL', 1270680], ['AMZN', 212188], ['MSFT', 232518], ['DIVSTOCKS', 98256], ['BRK-B', 71960],
+  ];
+  const startPrice = (s) => new MockProvider()._sym(s).price;
   const seed = () => ({
-    holdings: [
-      { id: uid(), symbol: 'AAPL', shares: 200, costBasis: 180 },
-      { id: uid(), symbol: 'NVDA', shares: 300, costBasis: 95 },
-      { id: uid(), symbol: 'MSFT', shares: 50, costBasis: 390 },
-    ],
+    holdings: INVESTED.map(([symbol, amount]) => {
+      const price = startPrice(symbol);
+      return { id: uid(), symbol, shares: +(amount / price).toFixed(4), costBasis: price };
+    }),
     priceAlerts: [
-      { id: uid(), symbol: 'NVDA', direction: 'above', target: 142, repeat: true, note: 'Example: consider trimming', active: true },
-      { id: uid(), symbol: 'MSFT', direction: 'below', target: 415, repeat: false, note: 'Example: add on dip', active: true },
+      { id: uid(), symbol: 'VOO', direction: 'above', target: +(startPrice('VOO') * 1.02).toFixed(2), repeat: true, note: 'Example: S&P up 2%', active: true },
+      { id: uid(), symbol: 'GOOGL', direction: 'below', target: +(startPrice('GOOGL') * 0.98).toFixed(2), repeat: false, note: 'Example: largest position down 2%', active: true },
     ],
     callRules: [
-      { id: uid(), symbol: '*', minPremium: 4, premiumBasis: 'bid', minDte: 7, maxDte: 45, minOtmPct: 3, minAnnualizedPct: 0, requireShares: false, active: true },
+      { id: uid(), symbol: '*', minPremium: 0.5, premiumBasis: 'bid', minDte: 14, maxDte: 45, minOtmPct: 5, minAnnualizedPct: 8, requireShares: false, active: true },
     ],
     notifications: [],
     callNotified: {},

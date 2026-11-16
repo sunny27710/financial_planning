@@ -2,7 +2,21 @@
 // Prices follow a random walk; call premiums are priced with Black-Scholes.
 
 const DAY_MS = 86_400_000;
-const BASE = { AAPL: 230, MSFT: 420, NVDA: 140, TSLA: 250, AMZN: 200, GOOGL: 175, META: 560, SPY: 580, QQQ: 500, AMD: 150 };
+// Starting prices (approximate mid-November 2026 levels) and volatility per symbol.
+const BASE = {
+  SCHD: 36.12, VOO: 693.38, VUG: 480, QQQ: 679.9, VT: 140, VXUS: 75, JEPQ: 56.2, O: 58.82,
+  GOOGL: 290, AMZN: 266.66, MSFT: 500, 'BRK-B': 500, DIVSTOCKS: 100,
+  AAPL: 230, NVDA: 140, TSLA: 250, META: 560, SPY: 640, AMD: 150,
+};
+const VOL = { SCHD: 0.14, VOO: 0.15, VUG: 0.19, QQQ: 0.2, VT: 0.14, VXUS: 0.15, JEPQ: 0.16, O: 0.2, 'BRK-B': 0.18, DIVSTOCKS: 0.15 };
+const NAMES = {
+  SCHD: 'Schwab US Dividend Equity ETF', VOO: 'Vanguard S&P 500 ETF', VUG: 'Vanguard Growth ETF', QQQ: 'Invesco QQQ Trust',
+  VT: 'Vanguard Total World Stock ETF', VXUS: 'Vanguard Total International Stock ETF', JEPQ: 'JPMorgan Nasdaq Equity Premium Income ETF',
+  O: 'Realty Income (REIT)', GOOGL: 'Alphabet (Google)', AMZN: 'Amazon', MSFT: 'Microsoft', 'BRK-B': 'Berkshire Hathaway B',
+  DIVSTOCKS: 'Dividend stocks (basket)',
+};
+// Holdings that aren't a single optionable ticker.
+const NO_OPTIONS = new Set(['DIVSTOCKS']);
 
 function hash(s) {
   let h = 0;
@@ -35,7 +49,7 @@ export class MockProvider {
     if (!this.state[symbol]) {
       const h = hash(symbol);
       const base = BASE[symbol] ?? 20 + (h % 300);
-      this.state[symbol] = { price: base, prevClose: base * (1 + ((h % 7) - 3) / 100), vol: 0.25 + (h % 30) / 100 };
+      this.state[symbol] = { price: base, prevClose: base * (1 + ((h % 7) - 3) / 200), vol: VOL[symbol] ?? 0.25 + (h % 30) / 100 };
     }
     return this.state[symbol];
   }
@@ -48,7 +62,7 @@ export class MockProvider {
       st.price = Math.max(0.5, st.price * (1 + (Math.random() - 0.5) * 0.005));
       out[s] = {
         symbol: s,
-        name: `${s} (simulated)`,
+        name: `${NAMES[s] || s} (simulated)`,
         price: +st.price.toFixed(2),
         regularPrice: +st.price.toFixed(2),
         prevClose: +st.prevClose.toFixed(2),
@@ -64,6 +78,7 @@ export class MockProvider {
   }
 
   async getCallChain(symbol, { minDte = 0, maxDte = 60 } = {}) {
+    if (NO_OPTIONS.has(symbol)) return [];
     const st = this._sym(symbol);
     const S = st.price;
     const now = new Date();

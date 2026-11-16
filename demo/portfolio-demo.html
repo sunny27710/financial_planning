@@ -315,7 +315,21 @@ input[name=symbol]::placeholder { text-transform: none; }
 // Prices follow a random walk; call premiums are priced with Black-Scholes.
 
 const DAY_MS = 86_400_000;
-const BASE = { AAPL: 230, MSFT: 420, NVDA: 140, TSLA: 250, AMZN: 200, GOOGL: 175, META: 560, SPY: 580, QQQ: 500, AMD: 150 };
+// Starting prices (approximate mid-November 2026 levels) and volatility per symbol.
+const BASE = {
+  SCHD: 36.12, VOO: 693.38, VUG: 480, QQQ: 679.9, VT: 140, VXUS: 75, JEPQ: 56.2, O: 58.82,
+  GOOGL: 290, AMZN: 266.66, MSFT: 500, 'BRK-B': 500, DIVSTOCKS: 100,
+  AAPL: 230, NVDA: 140, TSLA: 250, META: 560, SPY: 640, AMD: 150,
+};
+const VOL = { SCHD: 0.14, VOO: 0.15, VUG: 0.19, QQQ: 0.2, VT: 0.14, VXUS: 0.15, JEPQ: 0.16, O: 0.2, 'BRK-B': 0.18, DIVSTOCKS: 0.15 };
+const NAMES = {
+  SCHD: 'Schwab US Dividend Equity ETF', VOO: 'Vanguard S&P 500 ETF', VUG: 'Vanguard Growth ETF', QQQ: 'Invesco QQQ Trust',
+  VT: 'Vanguard Total World Stock ETF', VXUS: 'Vanguard Total International Stock ETF', JEPQ: 'JPMorgan Nasdaq Equity Premium Income ETF',
+  O: 'Realty Income (REIT)', GOOGL: 'Alphabet (Google)', AMZN: 'Amazon', MSFT: 'Microsoft', 'BRK-B': 'Berkshire Hathaway B',
+  DIVSTOCKS: 'Dividend stocks (basket)',
+};
+// Holdings that aren't a single optionable ticker.
+const NO_OPTIONS = new Set(['DIVSTOCKS']);
 
 function hash(s) {
   let h = 0;
@@ -348,7 +362,7 @@ class MockProvider {
     if (!this.state[symbol]) {
       const h = hash(symbol);
       const base = BASE[symbol] ?? 20 + (h % 300);
-      this.state[symbol] = { price: base, prevClose: base * (1 + ((h % 7) - 3) / 100), vol: 0.25 + (h % 30) / 100 };
+      this.state[symbol] = { price: base, prevClose: base * (1 + ((h % 7) - 3) / 200), vol: VOL[symbol] ?? 0.25 + (h % 30) / 100 };
     }
     return this.state[symbol];
   }
@@ -361,7 +375,7 @@ class MockProvider {
       st.price = Math.max(0.5, st.price * (1 + (Math.random() - 0.5) * 0.005));
       out[s] = {
         symbol: s,
-        name: `${s} (simulated)`,
+        name: `${NAMES[s] || s} (simulated)`,
         price: +st.price.toFixed(2),
         regularPrice: +st.price.toFixed(2),
         prevClose: +st.prevClose.toFixed(2),
@@ -377,6 +391,7 @@ class MockProvider {
   }
 
   async getCallChain(symbol, { minDte = 0, maxDte = 60 } = {}) {
+    if (NO_OPTIONS.has(symbol)) return [];
     const st = this._sym(symbol);
     const S = st.price;
     const now = new Date();
@@ -514,21 +529,26 @@ function filterNew(matches, ruleId, notified, cooldownHours, now = Date.now()) {
 // In-browser stand-in for server.js + monitor.js, used only by the standalone demo.
 // It reuses the real alert logic (src/alerts.js) and simulated data (src/providers/mock.js).
 (function () {
-  const KEY = 'portfolio-demo-v1';
+  const KEY = 'portfolio-demo-v2';
   const uid = () => Math.random().toString(36).slice(2, 10);
   const nowIso = () => new Date().toISOString();
+  // Your portfolio: total invested per asset, bought at today's (simulated) price.
+  const INVESTED = [
+    ['SCHD', 142587], ['VOO', 486178], ['VUG', 106742 / 2], ['QQQ', 106742 / 2], ['VT', 19904], ['VXUS', 34623],
+    ['JEPQ', 3297], ['O', 23760], ['GOOGL', 1270680], ['AMZN', 212188], ['MSFT', 232518], ['DIVSTOCKS', 98256], ['BRK-B', 71960],
+  ];
+  const startPrice = (s) => new MockProvider()._sym(s).price;
   const seed = () => ({
-    holdings: [
-      { id: uid(), symbol: 'AAPL', shares: 200, costBasis: 180 },
-      { id: uid(), symbol: 'NVDA', shares: 300, costBasis: 95 },
-      { id: uid(), symbol: 'MSFT', shares: 50, costBasis: 390 },
-    ],
+    holdings: INVESTED.map(([symbol, amount]) => {
+      const price = startPrice(symbol);
+      return { id: uid(), symbol, shares: +(amount / price).toFixed(4), costBasis: price };
+    }),
     priceAlerts: [
-      { id: uid(), symbol: 'NVDA', direction: 'above', target: 142, repeat: true, note: 'Example: consider trimming', active: true },
-      { id: uid(), symbol: 'MSFT', direction: 'below', target: 415, repeat: false, note: 'Example: add on dip', active: true },
+      { id: uid(), symbol: 'VOO', direction: 'above', target: +(startPrice('VOO') * 1.02).toFixed(2), repeat: true, note: 'Example: S&P up 2%', active: true },
+      { id: uid(), symbol: 'GOOGL', direction: 'below', target: +(startPrice('GOOGL') * 0.98).toFixed(2), repeat: false, note: 'Example: largest position down 2%', active: true },
     ],
     callRules: [
-      { id: uid(), symbol: '*', minPremium: 4, premiumBasis: 'bid', minDte: 7, maxDte: 45, minOtmPct: 3, minAnnualizedPct: 0, requireShares: false, active: true },
+      { id: uid(), symbol: '*', minPremium: 0.5, premiumBasis: 'bid', minDte: 14, maxDte: 45, minOtmPct: 5, minAnnualizedPct: 8, requireShares: false, active: true },
     ],
     notifications: [],
     callNotified: {},
