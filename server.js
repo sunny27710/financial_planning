@@ -9,6 +9,7 @@ import { Notifier } from './src/notifier.js';
 import { Monitor } from './src/monitor.js';
 import { YahooProvider } from './src/providers/yahoo.js';
 import { MockProvider } from './src/providers/mock.js';
+import { sharesFromAmount, parsePortfolioCsv, holdingsFromRows } from './src/holdings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -130,7 +131,12 @@ async function api(req, res, url) {
     const { list, clean } = collections[resource];
     const items = db[list];
     if (!id && m === 'POST') {
-      const item = { id: Store.id(), ...clean(await readBody(req)), createdAt: new Date().toISOString() };
+      let body = await readBody(req);
+      // Holdings can be entered as a dollar amount instead of shares.
+      if (resource === 'holdings' && !num(body.shares) && num(body.amount) > 0) {
+        body = await sharesFromAmount(provider, sym(body.symbol), num(body.amount));
+      }
+      const item = { id: Store.id(), ...clean(body), createdAt: new Date().toISOString() };
       items.push(item);
       store.save();
       afterChange(resource, item);
@@ -235,8 +241,26 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, HOST, () => {
+// On first run, load holdings from portfolio.csv (if present).
+async function importPortfolioCsv() {
+  const file = process.env.PORTFOLIO_CSV || path.join(__dirname, 'portfolio.csv');
+  if (store.db.holdings.length || !fs.existsSync(file)) return;
+  console.log(`Loading holdings from ${path.basename(file)}…`);
+  try {
+    const { holdings, problems } = await holdingsFromRows(provider, parsePortfolioCsv(fs.readFileSync(file, 'utf8')));
+    for (const h of holdings) store.db.holdings.push({ id: Store.id(), ...h, createdAt: new Date().toISOString() });
+    store.save();
+    const total = holdings.reduce((t, h) => t + h.shares * h.costBasis, 0);
+    console.log(`  Added ${holdings.length} holdings ($${Math.round(total).toLocaleString()} total).`);
+    for (const p of problems) console.warn(`  Skipped ${p}`);
+  } catch (err) {
+    console.error(`  Could not load ${path.basename(file)}: ${err.message}. Restart the app to try again.`);
+  }
+}
+
+server.listen(PORT, HOST, async () => {
   console.log(`Portfolio tracker running at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}  (data: ${provider.name})`);
+  await importPortfolioCsv();
   monitor.start();
 });
 

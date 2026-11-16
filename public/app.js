@@ -158,6 +158,8 @@ function renderHoldings() {
 $('#holdingForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
+  const d = formData(form);
+  if (!editing.holding && !Number(d.shares) && !Number(d.amount)) return alert('Enter the number of shares, or the dollar amount you invested.');
   try {
     if (editing.holding) await api('PUT', `/api/holdings/${editing.holding}`, formData(form));
     else await api('POST', '/api/holdings', formData(form));
@@ -306,7 +308,7 @@ document.addEventListener('click', async (e) => {
     if (act === 'edit-holding') {
       const h = S.holdings.find((x) => x.id === id);
       const f = $('#holdingForm');
-      f.elements.symbol.value = h.symbol; f.elements.shares.value = h.shares; f.elements.costBasis.value = h.costBasis || '';
+      f.elements.symbol.value = h.symbol; f.elements.shares.value = h.shares; f.elements.costBasis.value = h.costBasis || ''; f.elements.amount.value = '';
       editing.holding = id; f.querySelector('button').textContent = 'Save changes'; f.elements.shares.focus();
     }
     if (act === 'alert') {

@@ -216,8 +216,10 @@ input[name=symbol]::placeholder { text-transform: none; }
     <section class="panel active" id="tab-holdings">
       <form id="holdingForm" class="inline-form">
         <input name="symbol" placeholder="Ticker (e.g. AAPL)" required autocomplete="off" />
-        <input name="shares" type="number" step="any" min="0" placeholder="Shares" required />
+        <input name="shares" type="number" step="any" min="0" placeholder="Shares" />
         <input name="costBasis" type="number" step="any" min="0" placeholder="Avg cost / share" />
+        <span class="muted">or</span>
+        <input name="amount" type="number" step="any" min="0" placeholder="$ invested" title="Buys at today's price: shares = amount ÷ price" />
         <button class="btn primary">Add holding</button>
       </form>
       <div class="table-wrap">
@@ -532,10 +534,10 @@ function filterNew(matches, ruleId, notified, cooldownHours, now = Date.now()) {
   const KEY = 'portfolio-demo-v2';
   const uid = () => Math.random().toString(36).slice(2, 10);
   const nowIso = () => new Date().toISOString();
-  // Your portfolio: total invested per asset, bought at today's (simulated) price.
-  const INVESTED = [
-    ['SCHD', 142587], ['VOO', 486178], ['VUG', 106742 / 2], ['QQQ', 106742 / 2], ['VT', 19904], ['VXUS', 34623],
-    ['JEPQ', 3297], ['O', 23760], ['GOOGL', 1270680], ['AMZN', 212188], ['MSFT', 232518], ['DIVSTOCKS', 98256], ['BRK-B', 71960],
+  // Example portfolio: total invested per asset, bought at the simulated starting price.
+  // A private build can replace it with window.DEMO_PORTFOLIO (see scripts/build-demo.mjs).
+  const INVESTED = window.DEMO_PORTFOLIO || [
+    ['VOO', 50000], ['SCHD', 20000], ['QQQ', 15000], ['MSFT', 30000], ['GOOGL', 25000], ['AMZN', 20000], ['VXUS', 10000], ['O', 5000],
   ];
   const startPrice = (s) => new MockProvider()._sym(s).price;
   const seed = () => ({
@@ -545,7 +547,7 @@ function filterNew(matches, ruleId, notified, cooldownHours, now = Date.now()) {
     }),
     priceAlerts: [
       { id: uid(), symbol: 'VOO', direction: 'above', target: +(startPrice('VOO') * 1.02).toFixed(2), repeat: true, note: 'Example: S&P up 2%', active: true },
-      { id: uid(), symbol: 'GOOGL', direction: 'below', target: +(startPrice('GOOGL') * 0.98).toFixed(2), repeat: false, note: 'Example: largest position down 2%', active: true },
+      { id: uid(), symbol: 'GOOGL', direction: 'below', target: +(startPrice('GOOGL') * 0.98).toFixed(2), repeat: false, note: 'Example: Google down 2%', active: true },
     ],
     callRules: [
       { id: uid(), symbol: '*', minPremium: 0.5, premiumBasis: 'bid', minDte: 14, maxDte: 45, minOtmPct: 5, minAnnualizedPct: 8, requireShares: false, active: true },
@@ -865,6 +867,8 @@ function renderHoldings() {
 $('#holdingForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
+  const d = formData(form);
+  if (!editing.holding && !Number(d.shares) && !Number(d.amount)) return alert('Enter the number of shares, or the dollar amount you invested.');
   try {
     if (editing.holding) await api('PUT', `/api/holdings/${editing.holding}`, formData(form));
     else await api('POST', '/api/holdings', formData(form));
@@ -1013,7 +1017,7 @@ document.addEventListener('click', async (e) => {
     if (act === 'edit-holding') {
       const h = S.holdings.find((x) => x.id === id);
       const f = $('#holdingForm');
-      f.elements.symbol.value = h.symbol; f.elements.shares.value = h.shares; f.elements.costBasis.value = h.costBasis || '';
+      f.elements.symbol.value = h.symbol; f.elements.shares.value = h.shares; f.elements.costBasis.value = h.costBasis || ''; f.elements.amount.value = '';
       editing.holding = id; f.querySelector('button').textContent = 'Save changes'; f.elements.shares.focus();
     }
     if (act === 'alert') {

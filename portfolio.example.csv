@@ -1,0 +1,11 @@
+# Copy this file to portfolio.csv and put your own holdings in it.
+# portfolio.csv is ignored by git, so it never gets committed.
+#
+# When the app starts with no holdings, it loads portfolio.csv.
+# Each line is: ticker, amount invested in dollars
+#   - Shares are worked out as amount / today's price, and today's price becomes the cost basis.
+#   - Or give exact numbers: ticker, , shares, average cost   (e.g.  AAPL,,100,150.25)
+VOO, 50000
+SCHD, 20000
+MSFT, 30000
+AAPL,,100,150.25

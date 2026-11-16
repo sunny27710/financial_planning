@@ -4,10 +4,10 @@
   const KEY = 'portfolio-demo-v2';
   const uid = () => Math.random().toString(36).slice(2, 10);
   const nowIso = () => new Date().toISOString();
-  // Your portfolio: total invested per asset, bought at today's (simulated) price.
-  const INVESTED = [
-    ['SCHD', 142587], ['VOO', 486178], ['VUG', 106742 / 2], ['QQQ', 106742 / 2], ['VT', 19904], ['VXUS', 34623],
-    ['JEPQ', 3297], ['O', 23760], ['GOOGL', 1270680], ['AMZN', 212188], ['MSFT', 232518], ['DIVSTOCKS', 98256], ['BRK-B', 71960],
+  // Example portfolio: total invested per asset, bought at the simulated starting price.
+  // A private build can replace it with window.DEMO_PORTFOLIO (see scripts/build-demo.mjs).
+  const INVESTED = window.DEMO_PORTFOLIO || [
+    ['VOO', 50000], ['SCHD', 20000], ['QQQ', 15000], ['MSFT', 30000], ['GOOGL', 25000], ['AMZN', 20000], ['VXUS', 10000], ['O', 5000],
   ];
   const startPrice = (s) => new MockProvider()._sym(s).price;
   const seed = () => ({
@@ -17,7 +17,7 @@
     }),
     priceAlerts: [
       { id: uid(), symbol: 'VOO', direction: 'above', target: +(startPrice('VOO') * 1.02).toFixed(2), repeat: true, note: 'Example: S&P up 2%', active: true },
-      { id: uid(), symbol: 'GOOGL', direction: 'below', target: +(startPrice('GOOGL') * 0.98).toFixed(2), repeat: false, note: 'Example: largest position down 2%', active: true },
+      { id: uid(), symbol: 'GOOGL', direction: 'below', target: +(startPrice('GOOGL') * 0.98).toFixed(2), repeat: false, note: 'Example: Google down 2%', active: true },
     ],
     callRules: [
       { id: uid(), symbol: '*', minPremium: 0.5, premiumBasis: 'bid', minDte: 14, maxDte: 45, minOtmPct: 5, minAnnualizedPct: 8, requireShares: false, active: true },

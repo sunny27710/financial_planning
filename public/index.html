@@ -38,8 +38,10 @@
     <section class="panel active" id="tab-holdings">
       <form id="holdingForm" class="inline-form">
         <input name="symbol" placeholder="Ticker (e.g. AAPL)" required autocomplete="off" />
-        <input name="shares" type="number" step="any" min="0" placeholder="Shares" required />
+        <input name="shares" type="number" step="any" min="0" placeholder="Shares" />
         <input name="costBasis" type="number" step="any" min="0" placeholder="Avg cost / share" />
+        <span class="muted">or</span>
+        <input name="amount" type="number" step="any" min="0" placeholder="$ invested" title="Buys at today's price: shares = amount ÷ price" />
         <button class="btn primary">Add holding</button>
       </form>
       <div class="table-wrap">

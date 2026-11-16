@@ -1,3 +1,6 @@
 node_modules/
 data/db.json
 .env
+# Your real holdings: keep out of git (this repo is public)
+portfolio.csv
+demo/private-*.html
